@@ -1,0 +1,99 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  provider   String
+  providerId String
+  createdAt  DateTime @default(now())
+
+  licenses      License[]
+  orders        Order[]
+  paymentEvents PaymentEvent[]
+
+  @@map("users")
+}
+
+model License {
+  id             String    @id @default(cuid())
+  userId         String
+  status         String    @default("active")
+  paymentEventId String?
+  monthlyUsage   Int       @default(0)
+  usageResetAt   DateTime
+  createdAt      DateTime  @default(now())
+
+  user           User         @relation(fields: [userId], references: [id])
+  paymentEvent   PaymentEvent? @relation(fields: [paymentEventId], references: [id])
+
+  @@map("licenses")
+}
+
+model LicenseSlot {
+  id         Int @id @default(1)
+  totalSlots Int @default(5300)
+  soldCount  Int @default(0)
+
+  @@map("license_slots")
+}
+
+model Order {
+  id             String   @id @default(cuid())
+  userId         String
+  itemSlug       String
+  status         String   @default("pending")
+  deliveryMethod String
+  createdAt      DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id])
+  stlJobs StlJob[]
+
+  @@map("orders")
+}
+
+model StlJob {
+  id           String    @id @default(cuid())
+  orderId      String
+  inputDir     String
+  outputPath   String
+  status       String    @default("queued")
+  error        String?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  expiresAt    DateTime
+  filesDeleted Boolean   @default(false)
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@map("stl_jobs")
+}
+
+model PaymentEvent {
+  id              String   @id @default(cuid())
+  userId          String?
+  provider        String   @default("square")
+  providerEventId String   @unique
+  type            String
+  amountCents     Int
+  currency        String   @default("CAD")
+  meta            Json
+  createdAt       DateTime @default(now())
+
+  user     User?     @relation(fields: [userId], references: [id])
+  licenses License[]
+
+  @@map("payment_events")
+}
