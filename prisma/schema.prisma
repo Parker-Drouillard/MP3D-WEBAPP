@@ -24,6 +24,9 @@ model User {
   orders        Order[]
   paymentEvents PaymentEvent[]
 
+  accounts Account[]
+  sessions Session[]
+
   @@map("users")
 }
 
