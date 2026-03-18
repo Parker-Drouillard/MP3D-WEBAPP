@@ -6,25 +6,52 @@ import { prisma } from '$lib/server/prisma';
 import { getItem } from '$lib/catalog';
 import { UPLOAD_DIR, FAIR_USE_MONTHLY_LIMIT } from '$env/static/private';
 import type { RequestHandler } from './$types';
+import sharp from 'sharp';
+
 
 const MAGIC_BYTES = {
-  jpeg: [0xff, 0xd8, 0xff],
-  png: [0x89, 0x50, 0x4e, 0x47]
+  jpeg: { bytes: [0xff, 0xd8, 0xff], offset: 0 },
+  png: { bytes: [0x89, 0x50, 0x4e, 0x47], offset: 0 },
+  heic: { bytes: [0x66, 0x74, 0x79, 0x70], offset: 4 }
 };
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB per file
 
-async function validateImageType(
-  buffer: Buffer
-): Promise<'jpeg' | 'png' | null> {
-  const jpeg = MAGIC_BYTES.jpeg.every((byte, i) => buffer[i] === byte);
-  if (jpeg) return 'jpeg';
 
-  const png = MAGIC_BYTES.png.every((byte, i) => buffer[i] === byte);
-  if (png) return 'png';
+async function validateAndNormalizeImage(
+  buffer: Buffer
+): Promise<{ buffer: Buffer; ext: string } | null> {
+  // Check JPEG
+  const isJpeg = MAGIC_BYTES.jpeg.bytes.every(
+    (byte, i) => buffer[i + MAGIC_BYTES.jpeg.offset] === byte
+  );
+  if (isJpeg) return { buffer, ext: 'jpg' };
+
+  // Check PNG
+  const isPng = MAGIC_BYTES.png.bytes.every(
+    (byte, i) => buffer[i + MAGIC_BYTES.png.offset] === byte
+  );
+  if (isPng) return { buffer, ext: 'png' };
+
+  // Check HEIC (ftyp box at offset 4)
+  const isHeic =
+    buffer.length > 8 &&
+    MAGIC_BYTES.heic.bytes.every(
+      (byte, i) => buffer[i + MAGIC_BYTES.heic.offset] === byte
+    );
+
+  if (isHeic) {
+    try {
+      const converted = await sharp(buffer).jpeg({ quality: 92 }).toBuffer();
+      return { buffer: converted, ext: 'jpg' };
+    } catch {
+      return null;
+    }
+  }
 
   return null;
 }
+
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   // 1. Auth check — never trust client-supplied identity
@@ -86,7 +113,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     error(400, `Maximum ${item.maxPhotos} photos allowed`);
   }
 
-  // 7. Validate each file — magic bytes, size, type
+  // 7. Validate each file — magic bytes, size, type, convert HEIC if needed
   const validatedFiles: { buffer: Buffer; ext: string }[] = [];
 
   for (const file of files) {
@@ -96,16 +123,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const imageType = await validateImageType(buffer);
+    const result = await validateAndNormalizeImage(buffer);
 
-    if (!imageType) {
-      error(400, `File "${file.name}" is not a valid JPEG or PNG`);
+    if (!result) {
+      error(400, `File "${file.name}" is not a valid JPEG, PNG, or HEIC`);
     }
 
-    validatedFiles.push({
-      buffer,
-      ext: imageType === 'jpeg' ? 'jpg' : 'png'
-    });
+    validatedFiles.push(result);
   }
 
   // 8. Create order + stl_job in a transaction, increment fair use counter

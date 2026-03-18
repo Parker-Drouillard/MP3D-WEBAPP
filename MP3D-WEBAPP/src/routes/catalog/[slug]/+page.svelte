@@ -78,7 +78,7 @@
       <input
         id="photos"
         type="file"
-        accept="image/jpeg,image/png"
+        accept="image/jpeg,image/png,image/heic,.heic"
         multiple
         onchange={(e) => {
           const target = e.target as HTMLInputElement;
