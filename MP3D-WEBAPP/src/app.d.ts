@@ -1,4 +1,5 @@
 import type { DefaultSession } from '@auth/sveltekit';
+import type { License } from '@prisma/client';
 
 declare module '@auth/sveltekit' {
   interface Session {
@@ -15,6 +16,7 @@ declare global {
         id: string;
         email: string;
       };
+      license: License | null;
     }
   }
 }
