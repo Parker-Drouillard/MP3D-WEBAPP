@@ -8,6 +8,11 @@ import { UPLOAD_DIR, FAIR_USE_MONTHLY_LIMIT } from '$env/static/private';
 import type { RequestHandler } from './$types';
 import sharp from 'sharp';
 
+export const config = {
+  bodyParser: {
+    sizeLimit: '255mb' // 5 files × 50MB + 5MB headroom
+  }
+};
 
 const MAGIC_BYTES = {
   jpeg: { bytes: [0xff, 0xd8, 0xff], offset: 0 },
@@ -15,7 +20,7 @@ const MAGIC_BYTES = {
   heic: { bytes: [0x66, 0x74, 0x79, 0x70], offset: 4 }
 };
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB per file
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 20MB per file
 
 
 async function validateAndNormalizeImage(
