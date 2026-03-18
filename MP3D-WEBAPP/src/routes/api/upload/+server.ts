@@ -7,6 +7,8 @@ import { getItem } from '$lib/catalog';
 import { UPLOAD_DIR, FAIR_USE_MONTHLY_LIMIT } from '$env/static/private';
 import type { RequestHandler } from './$types';
 import sharp from 'sharp';
+import { getBoss } from '$lib/server/boss';
+import { OUTPUT_DIR } from '$env/static/private';
 
 export const config = {
   bodyParser: {
@@ -223,11 +225,23 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     error(500, 'Failed to save uploaded files');
   }
 
-  // 10. Update stl_job with the confirmed input dir and queue it
-  await prisma.stlJob.update({
-    where: { id: jobId },
-    data: { status: 'queued' }
-  });
+// 10. Enqueue the STL generation job
+  try {
+    const boss = await getBoss();
+    await boss.send('stl-generation', {
+      jobId,
+      orderId,
+      itemSlug: slug,
+      inputDir,
+      outputPath: join(OUTPUT_DIR, `${jobId}.stl`)
+    });
+  } catch (e) {
+    console.error('Failed to enqueue job:', e);
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { status: 'failed' }
+    });
+    error(500, 'Failed to queue generation job');
+  }
 
-  return json({ orderId }, { status: 201 });
-};
+return json({ orderId }, { status: 201 });
