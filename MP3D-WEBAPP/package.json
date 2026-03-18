@@ -19,9 +19,16 @@
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"prettier": "^3.8.1",
 		"prettier-plugin-svelte": "^3.4.1",
+		"prisma": "^7.5.0",
 		"svelte": "^5.51.0",
 		"svelte-check": "^4.4.2",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.1"
+	},
+	"dependencies": {
+		"@auth/prisma-adapter": "^2.11.1",
+		"@auth/sveltekit": "^1.11.1",
+		"@prisma/client": "^7.5.0",
+		"@sveltejs/adapter-node": "^5.5.4"
 	}
 }
