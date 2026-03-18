@@ -13,5 +13,10 @@ export async function getBoss(): Promise<PgBoss> {
   });
 
   await bossInstance.start();
+
+  // Ensure the queue exists before any send() calls
+  await bossInstance.createQueue('stl-generation');
+  console.log('[pg-boss] Started and queue ready');
+
   return bossInstance;
 }

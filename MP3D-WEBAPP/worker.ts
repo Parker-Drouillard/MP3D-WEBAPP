@@ -142,6 +142,9 @@ async function main() {
   await boss.start();
   console.log('[worker] pg-boss started');
 
+  // Ensure queue exists before registering worker
+  await boss.createQueue('stl-generation');
+
   await boss.work<{
     jobId: string;
     orderId: string;
@@ -151,7 +154,8 @@ async function main() {
   }>(
     'stl-generation',
     { teamSize: 1, teamConcurrency: 1 },
-    async (job) => {
+    async (jobs) => {
+      const job = Array.isArray(jobs) ? jobs[0] : jobs;
       const { jobId, orderId, itemSlug, inputDir, outputPath } = job.data;
 
       try {

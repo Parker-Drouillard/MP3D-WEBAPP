@@ -22,7 +22,7 @@ const MAGIC_BYTES = {
   heic: { bytes: [0x66, 0x74, 0x79, 0x70], offset: 4 }
 };
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 20MB per file
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB per file
 
 
 async function validateAndNormalizeImage(
@@ -237,13 +237,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 // 10. Enqueue the STL generation job
   try {
     const boss = await getBoss();
-    await boss.send('stl-generation', {
+    const jobId2 = await boss.send('stl-generation', {
       jobId,
       orderId,
       itemSlug: slug,
       inputDir,
       outputPath: join(OUTPUT_DIR, `${jobId}.stl`)
     });
+    console.log('[upload] Job enqueued with pg-boss id:', jobId2);
   } catch (e) {
     console.error('Failed to enqueue job:', e);
     await prisma.order.update({
@@ -253,4 +254,5 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     error(500, 'Failed to queue generation job');
   }
 
-return json({ orderId }, { status: 201 });
+  return json({ orderId }, { status: 201 });
+};
