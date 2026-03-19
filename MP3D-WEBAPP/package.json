@@ -38,6 +38,7 @@
 		"@sveltejs/adapter-node": "^5.5.4",
 		"pg": "^8.20.0",
 		"pg-boss": "^10.4.2",
+		"resend": "^6.9.4",
 		"sharp": "^0.34.5",
 		"square": "^44.0.1"
 	}

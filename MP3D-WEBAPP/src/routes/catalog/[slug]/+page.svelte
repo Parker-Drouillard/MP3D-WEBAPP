@@ -99,8 +99,8 @@
       <p class="success">{fileCount} photo{fileCount > 1 ? 's' : ''} selected.</p>
     {/if}
 
-    <div class="field">
-      <label>Delivery method</label>
+    <fieldset class="field">
+      <legend>Delivery method</legend>
       <div class="radio-group">
         <label>
           <input type="radio" bind:group={deliveryMethod} value="download" />
@@ -108,10 +108,10 @@
         </label>
         <label>
           <input type="radio" bind:group={deliveryMethod} value="email" />
-          Email to {data.license ? 'your address' : 'you'}
+          Email to your address
         </label>
       </div>
-    </div>
+    </fieldset>
 
     {#if error}
       <p class="error">{error}</p>
@@ -152,11 +152,15 @@
     margin-top: 2rem;
   }
 
-  .field {
+  fieldset {
+    border: none;
+    padding: 0;
     margin: 1rem 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
+  }
+
+  legend {
+    font-weight: 600;
+    margin-bottom: 0.4rem;
   }
 
   .radio-group {

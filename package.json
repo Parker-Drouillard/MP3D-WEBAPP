@@ -1,8 +1,0 @@
-{
-  "dependencies": {
-    "sharp": "^0.34.5"
-  },
-  "devDependencies": {
-    "@types/sharp": "^0.31.1"
-  }
-}

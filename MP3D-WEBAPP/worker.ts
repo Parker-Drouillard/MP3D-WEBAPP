@@ -5,6 +5,7 @@ import { createHmac } from 'crypto';
 import { join } from 'path';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { sendDownloadEmail } from './src/lib/server/email.ts';
 
 // --- Environment validation ---
 const required = [
@@ -104,10 +105,16 @@ async function processStlJob(job: {
   });
 
   // Success — generate download token and mark complete
-  const stlJob = await prisma.stlJob.findUnique({ where: { id: jobId } });
+  const stlJob = await prisma.stlJob.findUnique({
+    where: { id: jobId },
+    include: { order: { include: { user: true } } }
+  });
+  
   if (!stlJob) throw new Error(`Job ${jobId} not found after processing`);
 
   const token = generateDownloadToken(jobId, stlJob.expiresAt);
+  const downloadUrl = `${process.env.PUBLIC_APP_URL}/api/download/${jobId}?token=${token}`;
+
 
   await prisma.stlJob.update({
     where: { id: jobId },
@@ -125,6 +132,25 @@ async function processStlJob(job: {
       downloadToken: token
     }
   });
+
+  // Send email if delivery method is email
+  if (stlJob.order.deliveryMethod === 'email' && stlJob.order.user?.email) {
+    try {
+      await sendDownloadEmail({
+        to: stlJob.order.user.email,
+        downloadUrl,
+        itemName: stlJob.order.itemSlug,
+        expiresAt: stlJob.expiresAt,
+        resendApiKey: process.env.RESEND_API_KEY!,
+        emailFrom: process.env.EMAIL_FROM!,
+        appUrl: process.env.PUBLIC_APP_URL!
+      });
+      console.log(`[worker] Email sent to ${stlJob.order.user.email}`);
+    } catch (e) {
+      // Email failure should not fail the job — log and continue
+      console.error(`[worker] Email delivery failed:`, e);
+    }
+  }
 
   console.log(`[worker] Job ${jobId} complete`);
 }
