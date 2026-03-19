@@ -15,16 +15,18 @@ datasource db {
 model User {
   id         String   @id @default(cuid())
   email      String   @unique
-  provider   String
-  providerId String
+  name       String?
+  image      String?
+  emailVerified DateTime?
+  provider   String?
+  providerId String?
   createdAt  DateTime @default(now())
 
   licenses      License[]
   orders        Order[]
   paymentEvents PaymentEvent[]
-
-  accounts Account[]
-  sessions Session[]
+  accounts      Account[]
+  sessions      Session[]
 
   @@map("users")
 }
