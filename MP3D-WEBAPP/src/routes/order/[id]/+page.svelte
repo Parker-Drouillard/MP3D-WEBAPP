@@ -15,35 +15,12 @@
   let jobId = $state(data.job?.id ?? null);
   // svelte-ignore state_referenced_locally
   let expiresAt = $state(data.job?.expiresAt ? new Date(data.job.expiresAt) : null);
-  let timeRemaining = $state('');
   let eventSource: EventSource | null = null;
-  let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
   const itemSlug = $derived(data.order.itemSlug);
   const deliveryMethod = $derived(data.order.deliveryMethod);
   const orderId = $derived(data.order.id);
 
-  function formatTimeRemaining(expiry: Date): string {
-    const now = Date.now();
-    const diff = expiry.getTime() - now;
-
-    if (diff <= 0) return 'Expired';
-
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-    return `${hours}h ${minutes}m ${seconds}s`;
-  }
-
-  function startCountdown() {
-    if (!expiresAt) return;
-    timeRemaining = formatTimeRemaining(expiresAt);
-    countdownInterval = setInterval(() => {
-      if (!expiresAt) return;
-      timeRemaining = formatTimeRemaining(expiresAt);
-    }, 1000);
-  }
 
   function connectSSE() {
     if (status === 'complete' || status === 'failed') return;
@@ -59,7 +36,6 @@
       if (payload.jobId) jobId = payload.jobId;
       if (payload.expiresAt) {
         expiresAt = new Date(payload.expiresAt);
-        if (status === 'complete') startCountdown();
       }
 
       if (status === 'complete' || status === 'failed') {
@@ -74,16 +50,11 @@
   }
 
   onMount(() => {
-    if (status === 'complete' && expiresAt) {
-      startCountdown();
-    } else {
       connectSSE();
-    }
   });
 
   onDestroy(() => {
     eventSource?.close();
-    if (countdownInterval) clearInterval(countdownInterval);
   });
 
   const downloadUrl = $derived(
@@ -132,9 +103,12 @@
           </a>
         {/if}
 
-        {#if timeRemaining}
+        {#if expiresAt}
           <p class="expiry">
-            Link expires in: <strong>{timeRemaining}</strong>
+            Available until {expiresAt.toLocaleDateString('en-CA', {
+              month: 'long',
+              day: 'numeric'
+            })}
           </p>
         {/if}
 
