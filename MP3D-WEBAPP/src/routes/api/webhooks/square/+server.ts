@@ -3,26 +3,8 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { prisma } from '$lib/server/prisma';
 import { SQUARE_WEBHOOK_SIGNATURE_KEY, PUBLIC_APP_URL } from '$env/static/private';
 import type { RequestHandler } from './$types';
+import { verifySquareSignature } from '$lib/server/square-webhook';
 
-// Verify Square webhook signature
-function verifySquareSignature(
-  body: string,
-  signature: string,
-  webhookUrl: string
-): boolean {
-  const hmac = createHmac('sha256', SQUARE_WEBHOOK_SIGNATURE_KEY);
-  hmac.update(webhookUrl + body);
-  const expected = hmac.digest('base64');
-
-  try {
-    return timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expected)
-    );
-  } catch {
-    return false;
-  }
-}
 
 export const POST: RequestHandler = async ({ request }) => {
   // 1. Read raw body for signature verification
@@ -35,7 +17,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
   // 2. Verify signature before doing anything else
   const webhookUrl = `${PUBLIC_APP_URL}/api/webhooks/square`;
-  const isValid = verifySquareSignature(rawBody, signature, webhookUrl);
+  const isValid = verifySquareSignature(rawBody, signature, webhookUrl, SQUARE_WEBHOOK_SIGNATURE_KEY);
 
   if (!isValid) {
     console.warn('[webhook] Invalid Square signature received');

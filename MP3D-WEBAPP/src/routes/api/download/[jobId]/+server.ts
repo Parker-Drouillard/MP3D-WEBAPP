@@ -7,7 +7,6 @@ import { DOWNLOAD_HMAC_SECRET } from '$env/static/private';
 import type { RequestHandler } from './$types';
 import { validateDownloadToken } from '$lib/server/download-token';
 
-
 export const GET: RequestHandler = async ({ params, url }) => {
   const { jobId } = params;
   const token = url.searchParams.get('token');
@@ -16,7 +15,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
     error(403, 'Missing download token');
   }
 
-const { valid, expired } = validateDownloadToken(token, jobId, DOWNLOAD_HMAC_SECRET);
+  const { valid, expired } = validateDownloadToken(token, jobId, DOWNLOAD_HMAC_SECRET);  
   if (!valid) {
     error(403, 'Invalid download token');
   }

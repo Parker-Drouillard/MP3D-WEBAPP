@@ -2,6 +2,8 @@ import { redirect } from '@sveltejs/kit';
 import { prisma } from '$lib/server/prisma';
 import { FAIR_USE_MONTHLY_LIMIT } from '$env/static/private';
 import type { PageServerLoad } from './$types';
+import { fairUseStatus } from '$lib/server/fair-use';
+
 
 export const load: PageServerLoad = async ({ locals }) => {
   if (!locals.user) {
@@ -24,10 +26,6 @@ export const load: PageServerLoad = async ({ locals }) => {
     take: 20
   });
 
-  const usagePercent = license
-    ? (license.monthlyUsage / parseInt(FAIR_USE_MONTHLY_LIMIT, 10)) * 100
-    : 0;
-
   return {
     user: locals.user,
     license: license
@@ -36,12 +34,7 @@ export const load: PageServerLoad = async ({ locals }) => {
           status: license.status,
           usageResetAt: license.usageResetAt.toISOString(),
           createdAt: license.createdAt.toISOString(),
-          fairUseStatus:
-            usagePercent >= 100
-              ? 'exceeded'
-              : usagePercent >= 80
-                ? 'warning'
-                : 'good'
+          fairUseStatus: fairUseStatus(license.monthlyUsage, parseInt(FAIR_USE_MONTHLY_LIMIT, 10))
         }
       : null,
     orders: orders.map((order) => {

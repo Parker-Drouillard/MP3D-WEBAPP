@@ -6,6 +6,7 @@ import { join } from 'path';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { sendDownloadEmail } from './src/lib/server/email.ts';
+import { generateDownloadToken } from './src/lib/server/download-token.ts';
 
 // --- Environment validation ---
 const required = [
@@ -32,16 +33,6 @@ const JOB_TIMEOUT = parseInt(process.env.STL_JOB_TIMEOUT_SECONDS!, 10);
 // --- Prisma client ---
 const adapter = new PrismaPg({ connectionString: DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
-
-// --- HMAC token generation ---
-function generateDownloadToken(jobId: string, expiresAt: Date): string {
-  const expiry = expiresAt.getTime().toString();
-  const payload = `${jobId}:${expiry}`;
-  const sig = createHmac('sha256', DOWNLOAD_HMAC_SECRET)
-    .update(payload)
-    .digest('hex');
-  return Buffer.from(`${payload}:${sig}`).toString('base64url');
-}
 
 // --- STL job processor ---
 async function processStlJob(job: {

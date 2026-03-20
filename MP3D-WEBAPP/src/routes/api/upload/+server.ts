@@ -10,6 +10,8 @@ import sharp from 'sharp';
 import { getBoss } from '$lib/server/boss';
 import { OUTPUT_DIR } from '$env/static/private';
 import { validateAndNormalizeImage } from '$lib/server/image-validation';
+import { createOrderTransaction } from '$lib/server/order';
+import { needsReset } from '$lib/server/fair-use';
 
 export const config = {
   bodyParser: {
@@ -34,10 +36,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const now = new Date();
   const resetAt = new Date(locals.license.usageResetAt);
 
-  // If reset date has passed, we need to reset the counter first
-  const needsReset = now >= resetAt;
+  const reset = needsReset(now, resetAt);
 
-  if (!needsReset && locals.license.monthlyUsage >= limit) {
+  if (!reset && locals.license.monthlyUsage >= limit) {
     error(429, 'Monthly generation limit reached');
   }
 
@@ -99,63 +100,25 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   // 8. Create order + stl_job in a transaction, increment fair use counter
-  const jobId = randomUUID();
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-  const inputDir = join(UPLOAD_DIR, jobId);
-
-  // Calculate next reset date (monthly anniversary)
-  const nextResetAt = needsReset
-    ? new Date(
-        now.getFullYear(),
-        now.getMonth() + 1,
-        resetAt.getDate(),
-        resetAt.getHours(),
-        resetAt.getMinutes(),
-        resetAt.getSeconds()
-      )
-    : resetAt;
-
   let orderId: string;
+  let jobId: string;
+  let inputDir: string;
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      // Reset counter if anniversary has passed
-      const updatedLicense = await tx.license.update({
-        where: { id: locals.license!.id },
-        data: needsReset
-          ? { monthlyUsage: 1, usageResetAt: nextResetAt }
-          : { monthlyUsage: { increment: 1 } }
-      });
-
-      // Double-check limit inside transaction
-      if (updatedLicense.monthlyUsage > limit) {
-        throw new Error('LIMIT_EXCEEDED');
-      }
-
-      const order = await tx.order.create({
-        data: {
-          userId: locals.user!.id,
-          itemSlug: slug,
-          status: 'pending',
-          deliveryMethod
-        }
-      });
-
-      await tx.stlJob.create({
-        data: {
-          id: jobId,
-          orderId: order.id,
-          inputDir,
-          outputPath: '',
-          status: 'queued',
-          expiresAt
-        }
-      });
-
-      return { order };
+    const result = await createOrderTransaction(prisma, {
+      userId: locals.user.id,
+      licenseId: locals.license.id,
+      monthlyUsage: locals.license.monthlyUsage,
+      usageResetAt: new Date(locals.license.usageResetAt),
+      itemSlug: slug,
+      deliveryMethod,
+      uploadDir: UPLOAD_DIR,
+      fairUseLimit: limit
     });
 
-    orderId = result.order.id;
+    orderId = result.orderId;
+    jobId = result.jobId;
+    inputDir = result.inputDir;
   } catch (e) {
     if (e instanceof Error && e.message === 'LIMIT_EXCEEDED') {
       error(429, 'Monthly generation limit reached');
