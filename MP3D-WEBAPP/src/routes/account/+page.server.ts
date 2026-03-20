@@ -24,18 +24,26 @@ export const load: PageServerLoad = async ({ locals }) => {
     take: 20
   });
 
+  const usagePercent = license
+    ? (license.monthlyUsage / parseInt(FAIR_USE_MONTHLY_LIMIT, 10)) * 100
+    : 0;
+
   return {
     user: locals.user,
     license: license
       ? {
           id: license.id,
           status: license.status,
-          monthlyUsage: license.monthlyUsage,
           usageResetAt: license.usageResetAt.toISOString(),
-          createdAt: license.createdAt.toISOString()
+          createdAt: license.createdAt.toISOString(),
+          fairUseStatus:
+            usagePercent >= 100
+              ? 'exceeded'
+              : usagePercent >= 80
+                ? 'warning'
+                : 'good'
         }
       : null,
-    fairUseLimit: parseInt(FAIR_USE_MONTHLY_LIMIT, 10),
     orders: orders.map((order) => {
       const job = order.stlJobs[0];
       return {

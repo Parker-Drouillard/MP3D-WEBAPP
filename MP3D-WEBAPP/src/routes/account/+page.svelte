@@ -4,12 +4,6 @@
 
   let { data }: { data: PageData } = $props();
 
-  const usagePercent = $derived(
-    data.license
-      ? Math.min(100, (data.license.monthlyUsage / data.fairUseLimit) * 100)
-      : 0
-  );
-
   const resetDate = $derived(
     data.license
       ? new Date(data.license.usageResetAt).toLocaleDateString('en-CA', {
@@ -69,17 +63,21 @@
       </div>
 
       <div class="usage">
-        <div class="usage-header">
-          <span>Monthly usage</span>
-          <span>{data.license.monthlyUsage} / {data.fairUseLimit}</span>
+        <div class="usage-row">
+          <span>Account standing</span>
+          <span class="standing good">Good</span>
         </div>
-        <div class="progress-bar">
-          <div
-            class="progress-fill"
-            style="width: {usagePercent}%; background: {usagePercent >= 90 ? '#c00' : usagePercent >= 70 ? '#f90' : '#060'};"
-          ></div>
+        <div class="usage-row">
+          <span>Fair use standing</span>
+          {#if data.license.fairUseStatus === 'good'}
+            <span class="standing good">Good</span>
+          {:else if data.license.fairUseStatus === 'warning'}
+            <span class="standing warning">Approaching limit</span>
+          {:else}
+            <span class="standing exceeded">Limit reached</span>
+          {/if}
         </div>
-        <p class="reset-note">Resets on {resetDate}</p>
+        <p class="reset-note">Fair use resets on {resetDate}</p>
       </div>
     {:else}
       <div class="no-license">
@@ -207,26 +205,6 @@
     margin-top: 1.25rem;
   }
 
-  .usage-header {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.9rem;
-    margin-bottom: 0.4rem;
-  }
-
-  .progress-bar {
-    height: 8px;
-    background: #eee;
-    border-radius: 999px;
-    overflow: hidden;
-  }
-
-  .progress-fill {
-    height: 100%;
-    border-radius: 999px;
-    transition: width 0.3s ease;
-  }
-
   .reset-note {
     font-size: 0.8rem;
     color: #888;
@@ -336,4 +314,23 @@
   }
 
   a { color: #111; }
+
+  .usage-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .standing {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+  }
+
+  .standing.good { background: #e6f4ea; color: #060; }
+  .standing.warning { background: #fff8e1; color: #b45309; }
+  .standing.exceeded { background: #fee; color: #c00; }
 </style>
