@@ -1,0 +1,39 @@
+/* ── Fonts ── */
+:root {
+	--serif: 'DM Serif Display', Georgia, serif;
+	--sans: 'DM Sans', system-ui, sans-serif;
+}
+
+/* ── Color tokens ── */
+:root {
+	--cream: #faf8f4;
+	--ink: #1a1714;
+	--ink-mid: #6b6560;
+	--ink-light: #b5b0aa;
+	--accent: #c8522a;
+	--accent-light: #f5ede8;
+	--rule: #e2ded8;
+}
+
+/* ── Base reset ── */
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+html {
+	font-size: 16px;
+	-webkit-font-smoothing: antialiased;
+}
+
+body {
+	background: var(--cream);
+	color: var(--ink);
+	font-family: var(--sans);
+	font-weight: 300;
+	line-height: 1.6;
+	overflow-x: hidden;
+}
