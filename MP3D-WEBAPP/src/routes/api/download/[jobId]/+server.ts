@@ -5,44 +5,8 @@ import { stat } from 'fs/promises';
 import { prisma } from '$lib/server/prisma';
 import { DOWNLOAD_HMAC_SECRET } from '$env/static/private';
 import type { RequestHandler } from './$types';
+import { validateDownloadToken } from '$lib/server/download-token';
 
-function validateDownloadToken(
-  token: string,
-  jobId: string
-): { valid: boolean; expired: boolean } {
-  try {
-    const decoded = Buffer.from(token, 'base64url').toString('utf-8');
-    const parts = decoded.split(':');
-
-    if (parts.length !== 3) return { valid: false, expired: false };
-
-    const [tokenJobId, expiry, sig] = parts;
-
-    // Verify job ID matches
-    if (tokenJobId !== jobId) return { valid: false, expired: false };
-
-    // Verify signature
-    const payload = `${tokenJobId}:${expiry}`;
-    const expected = createHmac('sha256', DOWNLOAD_HMAC_SECRET)
-      .update(payload)
-      .digest('hex');
-
-    const sigValid = timingSafeEqual(
-      Buffer.from(sig),
-      Buffer.from(expected)
-    );
-
-    if (!sigValid) return { valid: false, expired: false };
-
-    // Check expiry
-    const expiryMs = parseInt(expiry, 10);
-    const expired = Date.now() > expiryMs;
-
-    return { valid: true, expired };
-  } catch {
-    return { valid: false, expired: false };
-  }
-}
 
 export const GET: RequestHandler = async ({ params, url }) => {
   const { jobId } = params;
@@ -52,8 +16,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
     error(403, 'Missing download token');
   }
 
-  const { valid, expired } = validateDownloadToken(token, jobId);
-
+const { valid, expired } = validateDownloadToken(token, jobId, DOWNLOAD_HMAC_SECRET);
   if (!valid) {
     error(403, 'Invalid download token');
   }
