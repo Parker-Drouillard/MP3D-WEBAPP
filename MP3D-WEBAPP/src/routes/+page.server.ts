@@ -2,15 +2,20 @@ import type { PageServerLoad } from './$types';
 import { prisma } from '$lib/server/prisma';
 
 export const load: PageServerLoad = async () => {
-	const slots = await prisma.licenseSlot.findUnique({
-		where: { id: 1 },
-		select: { totalSlots: true, soldCount: true }
+	const tranches = await prisma.tranche.findMany({
+		orderBy: { order: 'asc' }
 	});
 
-	const total = slots?.totalSlots ?? 5300;
-	const sold = slots?.soldCount ?? 0;
-	const remaining = total - sold;
-	const percentSold = Math.round((sold / total) * 100);
+	// Find the first tranche that isn't sold out
+	const activeTranche = tranches.find((t) => t.soldCount < t.capacity) ?? null;
 
-	return { total, remaining, percentSold };
+	const priceCents = activeTranche?.priceCents ?? 30000;
+	const capacity = activeTranche?.capacity ?? 0;
+	const soldCount = activeTranche?.soldCount ?? 0;
+	const remaining = capacity - soldCount;
+	const percentSold = capacity > 0 ? Math.round((soldCount / capacity) * 100) : 100;
+	const priceCAD = (priceCents / 100).toFixed(0);
+	const trancheName = activeTranche?.name ?? 'Full Price';
+
+	return { priceCents, priceCAD, capacity, remaining, percentSold, trancheName };
 };

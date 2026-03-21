@@ -36,22 +36,29 @@ model License {
   userId         String
   status         String    @default("active")
   paymentEventId String?
+  trancheId      Int?
+  pricePaidCents Int?
   monthlyUsage   Int       @default(0)
   usageResetAt   DateTime
   createdAt      DateTime  @default(now())
-
   user           User         @relation(fields: [userId], references: [id])
   paymentEvent   PaymentEvent? @relation(fields: [paymentEventId], references: [id])
-
+  tranche        Tranche?     @relation(fields: [trancheId], references: [id])
   @@map("licenses")
 }
 
-model LicenseSlot {
-  id         Int @id @default(1)
-  totalSlots Int @default(5300)
-  soldCount  Int @default(0)
+model Tranche {
+  id          Int      @id @default(autoincrement())
+  name        String
+  priceCents  Int
+  capacity    Int
+  soldCount   Int      @default(0)
+  order       Int      @unique
+  createdAt   DateTime @default(now())
 
-  @@map("license_slots")
+  licenses    License[]
+
+  @@map("tranches")
 }
 
 model Order {

@@ -3,28 +3,38 @@ import type { PageServerLoad } from './$types';
 import { PUBLIC_SQUARE_LOCATION_ID } from '$env/static/public';
 
 export const load: PageServerLoad = async ({ locals }) => {
-  // Check if slots are available
-  const slots = await prisma.licenseSlot.findUnique({
-    where: { id: 1 }
-  });
+	const tranches = await prisma.tranche.findMany({
+		orderBy: { order: 'asc' }
+	});
 
-  const soldOut = !slots || slots.soldCount >= slots.totalSlots;
-  const remaining = slots ? slots.totalSlots - slots.soldCount : 0;
+	const activeTranche = tranches.find((t) => t.soldCount < t.capacity) ?? null;
 
-  // Check if user already has a license
-  let hasLicense = false;
-  if (locals.user) {
-    const license = await prisma.license.findFirst({
-      where: { userId: locals.user.id, status: 'active' }
-    });
-    hasLicense = !!license;
-  }
+	const soldOut = !activeTranche;
+	const remaining = activeTranche ? activeTranche.capacity - activeTranche.soldCount : 0;
+	const capacity = activeTranche?.capacity ?? 0;
+	const priceCents = activeTranche?.priceCents ?? 30000;
+	const priceCAD = (priceCents / 100).toFixed(0);
+	const trancheName = activeTranche?.name ?? 'Full Price';
+	const percentSold = capacity > 0 ? Math.round((activeTranche!.soldCount / capacity) * 100) : 100;
 
-    return {
-    soldOut,
-    remaining,
-    hasLicense,
-    isLoggedIn: !!locals.user,
-    locationId: PUBLIC_SQUARE_LOCATION_ID
-  };
+	let hasLicense = false;
+	if (locals.user) {
+		const license = await prisma.license.findFirst({
+			where: { userId: locals.user.id, status: 'active' }
+		});
+		hasLicense = !!license;
+	}
+
+	return {
+		soldOut,
+		remaining,
+		capacity,
+		priceCents,
+		priceCAD,
+		trancheName,
+		percentSold,
+		hasLicense,
+		isLoggedIn: !!locals.user,
+		locationId: PUBLIC_SQUARE_LOCATION_ID
+	};
 };

@@ -7,146 +7,155 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-async function resetSlots(total: number, sold: number) {
-  await pool.query(
-    `UPDATE license_slots SET "totalSlots" = $1, "soldCount" = $2 WHERE id = 1`,
-    [total, sold]
-  );
+async function resetTranche(id: number, soldCount: number, capacity: number) {
+	await pool.query(
+		`UPDATE tranches SET "soldCount" = $1, capacity = $2 WHERE id = $3`,
+		[soldCount, capacity, id]
+	);
 }
 
-async function readSlotsForUpdate(
-  client: pg.PoolClient
-): Promise<{ soldCount: number; totalSlots: number }> {
-  const res = await client.query<{ soldCount: number; totalSlots: number }>(
-    `SELECT "soldCount", "totalSlots" FROM license_slots WHERE id = 1 FOR UPDATE`
-  );
-  return res.rows[0];
+async function readTrancheForUpdate(
+	client: pg.PoolClient,
+	id: number
+): Promise<{ soldCount: number; capacity: number }> {
+	const res = await client.query<{ soldCount: number; capacity: number }>(
+		`SELECT "soldCount", capacity FROM tranches WHERE id = $1 FOR UPDATE`,
+		[id]
+	);
+	return res.rows[0];
 }
 
-async function incrementSoldCount(client: pg.PoolClient): Promise<void> {
-  await client.query(
-    `UPDATE license_slots SET "soldCount" = "soldCount" + 1 WHERE id = 1`
-  );
+async function incrementSoldCount(client: pg.PoolClient, id: number): Promise<void> {
+	await client.query(
+		`UPDATE tranches SET "soldCount" = "soldCount" + 1 WHERE id = $1`,
+		[id]
+	);
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('license_slots FOR UPDATE', () => {
-  beforeAll(async () => {
-    const res = await pool.query('SELECT id FROM license_slots WHERE id = 1');
-    if (res.rowCount === 0) {
-      throw new Error('license_slots row not found — did the seed run?');
-    }
-  });
+describe('tranches FOR UPDATE', () => {
+	let firstTrancheId: number;
 
-  afterAll(async () => {
-    await pool.end();
-  });
+	beforeAll(async () => {
+		const res = await pool.query<{ id: number }>(
+			`SELECT id FROM tranches ORDER BY "order" ASC LIMIT 1`
+		);
+		if (res.rowCount === 0) {
+			throw new Error('No tranches found — did the seed run?');
+		}
+		firstTrancheId = res.rows[0].id;
+	});
 
-  beforeEach(async () => {
-    await resetSlots(5300, 0);
-  });
+	afterAll(async () => {
+		await pool.end();
+	});
 
-  it('reads the correct initial values after seed', async () => {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const row = await readSlotsForUpdate(client);
-      await client.query('ROLLBACK');
-      expect(row.totalSlots).toBe(5300);
-      expect(row.soldCount).toBe(0);
-    } finally {
-      client.release();
-    }
-  });
+	beforeEach(async () => {
+		await resetTranche(firstTrancheId, 0, 100);
+	});
 
-  it('increments soldCount after a committed transaction', async () => {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      await readSlotsForUpdate(client);
-      await incrementSoldCount(client);
-      await client.query('COMMIT');
-    } finally {
-      client.release();
-    }
+	it('reads the correct initial values after seed', async () => {
+		const client = await pool.connect();
+		try {
+			await client.query('BEGIN');
+			const row = await readTrancheForUpdate(client, firstTrancheId);
+			await client.query('ROLLBACK');
+			expect(row.capacity).toBe(100);
+			expect(row.soldCount).toBe(0);
+		} finally {
+			client.release();
+		}
+	});
 
-    const check = await pool.query<{ soldCount: number }>(
-      `SELECT "soldCount" FROM license_slots WHERE id = 1`
-    );
-    expect(check.rows[0].soldCount).toBe(1);
-  });
+	it('increments soldCount after a committed transaction', async () => {
+		const client = await pool.connect();
+		try {
+			await client.query('BEGIN');
+			await readTrancheForUpdate(client, firstTrancheId);
+			await incrementSoldCount(client, firstTrancheId);
+			await client.query('COMMIT');
+		} finally {
+			client.release();
+		}
 
-  it('does not increment soldCount when the transaction is rolled back', async () => {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      await readSlotsForUpdate(client);
-      await incrementSoldCount(client);
-      await client.query('ROLLBACK');
-    } finally {
-      client.release();
-    }
+		const check = await pool.query<{ soldCount: number }>(
+			`SELECT "soldCount" FROM tranches WHERE id = $1`,
+			[firstTrancheId]
+		);
+		expect(check.rows[0].soldCount).toBe(1);
+	});
 
-    const check = await pool.query<{ soldCount: number }>(
-      `SELECT "soldCount" FROM license_slots WHERE id = 1`
-    );
-    expect(check.rows[0].soldCount).toBe(0);
-  });
+	it('does not increment soldCount when the transaction is rolled back', async () => {
+		const client = await pool.connect();
+		try {
+			await client.query('BEGIN');
+			await readTrancheForUpdate(client, firstTrancheId);
+			await incrementSoldCount(client, firstTrancheId);
+			await client.query('ROLLBACK');
+		} finally {
+			client.release();
+		}
 
-  it('detects a sold out state when soldCount equals totalSlots', async () => {
-    await resetSlots(5300, 5300);
+		const check = await pool.query<{ soldCount: number }>(
+			`SELECT "soldCount" FROM tranches WHERE id = $1`,
+			[firstTrancheId]
+		);
+		expect(check.rows[0].soldCount).toBe(0);
+	});
 
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const row = await readSlotsForUpdate(client);
-      await client.query('ROLLBACK');
-      expect(row.soldCount).toBeGreaterThanOrEqual(row.totalSlots);
-    } finally {
-      client.release();
-    }
-  });
+	it('detects a sold out state when soldCount equals capacity', async () => {
+		await resetTranche(firstTrancheId, 100, 100);
 
-  it('only sells one slot when two transactions race for the last one', async () => {
-    await resetSlots(5300, 5299); // one slot remaining
+		const client = await pool.connect();
+		try {
+			await client.query('BEGIN');
+			const row = await readTrancheForUpdate(client, firstTrancheId);
+			await client.query('ROLLBACK');
+			expect(row.soldCount).toBeGreaterThanOrEqual(row.capacity);
+		} finally {
+			client.release();
+		}
+	});
 
-    async function tryBuy(): Promise<'sold' | 'soldout'> {
-      const client = await pool.connect();
-      try {
-        await client.query('BEGIN');
-        const row = await readSlotsForUpdate(client); // blocks if locked
+	it('only sells one slot when two transactions race for the last one', async () => {
+		await resetTranche(firstTrancheId, 99, 100); // one slot remaining
 
-        if (row.soldCount >= row.totalSlots) {
-          await client.query('ROLLBACK');
-          return 'soldout';
-        }
+		async function tryBuy(): Promise<'sold' | 'soldout'> {
+			const client = await pool.connect();
+			try {
+				await client.query('BEGIN');
+				const row = await readTrancheForUpdate(client, firstTrancheId);
 
-        // Small delay so both transactions overlap in time
-        await new Promise((r) => setTimeout(r, 10));
+				if (row.soldCount >= row.capacity) {
+					await client.query('ROLLBACK');
+					return 'soldout';
+				}
 
-        await incrementSoldCount(client);
-        await client.query('COMMIT');
-        return 'sold';
-      } catch {
-        await client.query('ROLLBACK').catch(() => {});
-        return 'soldout';
-      } finally {
-        client.release();
-      }
-    }
+				// Small delay so both transactions overlap in time
+				await new Promise((r) => setTimeout(r, 10));
 
-    const [resultA, resultB] = await Promise.all([tryBuy(), tryBuy()]);
+				await incrementSoldCount(client, firstTrancheId);
+				await client.query('COMMIT');
+				return 'sold';
+			} catch {
+				await client.query('ROLLBACK').catch(() => {});
+				return 'soldout';
+			} finally {
+				client.release();
+			}
+		}
 
-    // Exactly one should succeed
-    const results = [resultA, resultB];
-    expect(results.filter((r) => r === 'sold').length).toBe(1);
-    expect(results.filter((r) => r === 'soldout').length).toBe(1);
+		const [resultA, resultB] = await Promise.all([tryBuy(), tryBuy()]);
 
-    // Final soldCount must equal totalSlots — not exceed it
-    const final = await pool.query<{ soldCount: number; totalSlots: number }>(
-      `SELECT "soldCount", "totalSlots" FROM license_slots WHERE id = 1`
-    );
-    expect(final.rows[0].soldCount).toBe(final.rows[0].totalSlots);
-  });
+		const results = [resultA, resultB];
+		expect(results.filter((r) => r === 'sold').length).toBe(1);
+		expect(results.filter((r) => r === 'soldout').length).toBe(1);
+
+		const final = await pool.query<{ soldCount: number; capacity: number }>(
+			`SELECT "soldCount", capacity FROM tranches WHERE id = $1`,
+			[firstTrancheId]
+		);
+		expect(final.rows[0].soldCount).toBe(final.rows[0].capacity);
+	});
 });
