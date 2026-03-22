@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-
 	type Props = {
 		user: { id: string; email: string } | null;
 		hasLicense: boolean;
@@ -59,9 +57,9 @@
 				<li><a href="/#how-it-works" onclick={closeMobile}>How it works</a></li>
 				<li><a href="/#for-sellers" onclick={closeMobile}>For sellers</a></li>
 				{#if user}
-					<li><a href="/account" onclick={closeMobile}>My Account</a></li>
+					<li><a href="/account">My Account</a></li>
 				{:else}
-					<li><a href="/auth/login" onclick={closeMobile}>Sign in</a></li>
+					<li><a href="/auth/login">Sign in</a></li>
 				{/if}
 				{#if !hasLicense}
 					<li><a href="/buy" onclick={closeMobile} class="nav-cta-mobile">Get access</a></li>

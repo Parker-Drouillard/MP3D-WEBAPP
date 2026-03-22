@@ -12,15 +12,12 @@
 						<li><a href="/catalog">Catalog</a></li>
 						<li><a href="/#how-it-works">How it works</a></li>
 						<li><a href="/buy">Pricing</a></li>
-						<li><a href="/auth/login">Sign in</a></li>
 					</ul>
 				</div>
 				<div class="footer-col">
 					<h4>Company</h4>
 					<ul>
 						<li><a href="mailto:hello@myphoto3d.ca">Contact</a></li>
-						<li><a href="/privacy">Privacy Policy</a></li>
-						<li><a href="/terms">Terms of Service</a></li>
 					</ul>
 				</div>
 			</div>

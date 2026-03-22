@@ -1,336 +1,547 @@
 <script lang="ts">
-  import type { PageData } from './$types';
-  import { signOut } from '@auth/sveltekit/client';
+	import type { PageData } from './$types';
+	import { signOut } from '@auth/sveltekit/client';
 
-  let { data }: { data: PageData } = $props();
+	let { data }: { data: PageData } = $props();
 
-  const resetDate = $derived(
-    data.license
-      ? new Date(data.license.usageResetAt).toLocaleDateString('en-CA', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        })
-      : null
-  );
+	const resetDate = $derived(
+		data.license
+			? new Date(data.license.usageResetAt).toLocaleDateString('en-CA', {
+					year: 'numeric',
+					month: 'long',
+					day: 'numeric'
+				})
+			: null
+	);
 
-  function getDownloadUrl(order: typeof data.orders[0]): string | null {
-    if (!order.job || !order.downloadToken) return null;
-    if (order.job.filesDeleted) return null;
-    if (new Date(order.job.expiresAt) < new Date()) return null;
-    return `/api/download/${order.job.id}?token=${order.downloadToken}`;
-  }
+	function getDownloadUrl(order: (typeof data.orders)[0]): string | null {
+		if (!order.job || !order.downloadToken) return null;
+		if (order.job.filesDeleted) return null;
+		if (new Date(order.job.expiresAt) < new Date()) return null;
+		return `/api/download/${order.job.id}?token=${order.downloadToken}`;
+	}
 
-  function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString('en-CA', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  }
+	function formatDate(iso: string): string {
+		return new Date(iso).toLocaleDateString('en-CA', {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric'
+		});
+	}
 
-    function formatExpiry(iso: string): string {
-        const expiry = new Date(iso);
-        const now = new Date();
-        if (expiry < now) return 'Expired';
-        return `Available until ${expiry.toLocaleDateString('en-CA', {
-        month: 'long',
-        day: 'numeric'
-        })}`;
-    }
+	function formatExpiry(iso: string): string {
+		const expiry = new Date(iso);
+		const now = new Date();
+		if (expiry < now) return 'Expired';
+		return `Available until ${expiry.toLocaleDateString('en-CA', { month: 'long', day: 'numeric' })}`;
+	}
+
+	const statusLabels: Record<string, string> = {
+		complete: 'Complete',
+		pending: 'Pending',
+		processing: 'Processing',
+		failed: 'Failed'
+	};
 </script>
 
 <svelte:head>
-  <title>My Account</title>
+	<title>My Account — MyPhoto3D</title>
 </svelte:head>
 
-<main>
-  <div class="header">
-    <h1>My Account</h1>
-    <button onclick={() => signOut({ callbackUrl: '/' })}>Sign out</button>
-  </div>
+<div class="page">
+	<div class="container">
 
-  <p class="email">{data.user.email}</p>
+		<!-- Page header -->
+		<div class="page-header">
+			<div>
+				<p class="eyebrow">Account</p>
+				<h1>My Account</h1>
+				<p class="user-email">{data.user.email}</p>
+			</div>
+			<button class="btn-signout" onclick={() => signOut({ callbackUrl: '/' })}>
+				Sign out
+			</button>
+		</div>
 
-  <!-- License status -->
-  <section class="card">
-    <h2>License</h2>
+		<div class="layout">
+			<div class="main-col">
 
-    {#if data.license}
-      <div class="license-active">
-        <span class="badge active">Active</span>
-        <p class="since">Member since {formatDate(data.license.createdAt)}</p>
-      </div>
+				<!-- License card -->
+				<section class="card">
+					<div class="card-header">
+						<h2>License</h2>
+						{#if data.license}
+							<span class="badge badge-active">Active</span>
+						{:else}
+							<span class="badge badge-inactive">No license</span>
+						{/if}
+					</div>
 
-      <div class="usage">
-        <div class="usage-row">
-          <span>Account standing</span>
-          <span class="standing good">Good</span>
-        </div>
-        <div class="usage-row">
-          <span>Fair use standing</span>
-          {#if data.license.fairUseStatus === 'good'}
-            <span class="standing good">Good</span>
-          {:else if data.license.fairUseStatus === 'warning'}
-            <span class="standing warning">Approaching limit</span>
-          {:else}
-            <span class="standing exceeded">Limit reached</span>
-          {/if}
-        </div>
-        <p class="reset-note">Fair use resets on {resetDate}</p>
-      </div>
-    {:else}
-      <div class="no-license">
-        <span class="badge inactive">No license</span>
-        <p>You don't have an active license.</p>
-        <a href="/buy" class="btn">Get lifetime access →</a>
-      </div>
-    {/if}
-  </section>
+					{#if data.license}
+						<p class="since">Member since {formatDate(data.license.createdAt)}</p>
 
-  <!-- Order history -->
-  <section class="card">
-    <h2>Order History</h2>
+						<div class="divider"></div>
 
-    {#if data.orders.length === 0}
-      <p class="empty">No orders yet. <a href="/catalog">Browse the catalog →</a></p>
-    {:else}
-      <div class="orders">
-        {#each data.orders as order}
-          <div class="order">
-            <div class="order-info">
-              <span class="order-item">{order.itemSlug}</span>
-              <span class="order-date">{formatDate(order.createdAt)}</span>
-            </div>
+						<div class="usage-rows">
+							<div class="usage-row">
+								<span class="usage-label">Account standing</span>
+								<span class="pill pill-good">Good</span>
+							</div>
+							<div class="usage-row">
+								<span class="usage-label">Fair use standing</span>
+								{#if data.license.fairUseStatus === 'good'}
+									<span class="pill pill-good">Good</span>
+								{:else if data.license.fairUseStatus === 'warning'}
+									<span class="pill pill-warning">Approaching limit</span>
+								{:else}
+									<span class="pill pill-exceeded">Limit reached</span>
+								{/if}
+							</div>
+						</div>
+						<p class="reset-note">Fair use resets on {resetDate}</p>
 
-            <div class="order-meta">
-              <span class="status {order.status}">{order.status}</span>
-              <span class="delivery">{order.deliveryMethod}</span>
-            </div>
+					{:else}
+						<p class="no-license-note">
+							You don't have an active license. Purchase lifetime access to start creating.
+						</p>
+						<a href="/buy" class="btn-primary">
+							Get lifetime access
+							<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+								<path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+							</svg>
+						</a>
+					{/if}
+				</section>
 
-            {#if order.status === 'complete'}
-              {#if order.job && !order.job.filesDeleted && new Date(order.job.expiresAt) > new Date()}
-                {@const url = getDownloadUrl(order)}
-                {#if url}
-                  <div class="order-download">
-                    <a href={url} class="download-link" download>Download STL</a>
-                    <span class="expiry">{formatExpiry(order.job.expiresAt)}</span>                  </div>
-                {/if}
-              {:else}
-                <p class="expired">File expired</p>
-              {/if}
-            {:else if order.status === 'processing' || order.status === 'pending'}
-              <a href="/order/{order.id}" class="view-link">View status →</a>
-            {:else if order.status === 'failed'}
-              <a href="/catalog/{order.itemSlug}" class="retry-link">Retry →</a>
-            {/if}
-          </div>
-        {/each}
-      </div>
-    {/if}
-  </section>
-</main>
+				<!-- Order history -->
+				<section class="card">
+					<div class="card-header">
+						<h2>Order History</h2>
+						{#if data.orders.length > 0}
+							<a href="/catalog" class="new-order-link">
+								New order
+								<svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+									<path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+								</svg>
+							</a>
+						{/if}
+					</div>
+
+					{#if data.orders.length === 0}
+						<div class="empty-state">
+							<p>No orders yet.</p>
+							<a href="/catalog" class="btn-primary">
+								Browse the catalog
+								<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+									<path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+								</svg>
+							</a>
+						</div>
+					{:else}
+						<div class="orders">
+							{#each data.orders as order}
+								<div class="order">
+									<div class="order-top">
+										<div class="order-left">
+											<span class="order-slug">{order.itemSlug}</span>
+											<span class="order-date">{formatDate(order.createdAt)}</span>
+										</div>
+										<div class="order-right">
+											<span class="status-pill status-{order.status}">
+												{statusLabels[order.status] ?? order.status}
+											</span>
+											<span class="delivery-method">{order.deliveryMethod}</span>
+										</div>
+									</div>
+
+									{#if order.status === 'complete'}
+										{#if order.job && !order.job.filesDeleted && new Date(order.job.expiresAt) > new Date()}
+											{@const url = getDownloadUrl(order)}
+											{#if url}
+												<div class="order-download">
+													<a href={url} class="download-btn" download>
+														<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+															<path d="M8 2v8M5 7l3 3 3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+														</svg>
+														Download STL
+													</a>
+													<span class="expiry-note">{formatExpiry(order.job.expiresAt)}</span>
+												</div>
+											{/if}
+										{:else}
+											<p class="file-expired">File expired</p>
+										{/if}
+									{:else if order.status === 'processing' || order.status === 'pending'}
+										<a href="/order/{order.id}" class="order-action-link">
+											View status
+											<svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+												<path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+											</svg>
+										</a>
+									{:else if order.status === 'failed'}
+										<a href="/catalog/{order.itemSlug}" class="order-action-link">
+											Try again
+											<svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+												<path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+											</svg>
+										</a>
+									{/if}
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</section>
+
+			</div>
+		</div>
+	</div>
+</div>
 
 <style>
-  main {
-    max-width: 700px;
-    margin: 2rem auto;
-    padding: 0 1rem;
-  }
+	.page {
+		padding: 4rem 0 6rem;
+	}
 
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.25rem;
-  }
+	.container {
+		max-width: 760px;
+		margin: 0 auto;
+		padding: 0 2.5rem;
+	}
 
-  .header button {
-    background: none;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 0.4rem 1rem;
-    cursor: pointer;
-    font-size: 0.9rem;
-    color: #555;
-  }
+	/* ── Page header ── */
+	.page-header {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		margin-bottom: 3rem;
+		padding-bottom: 2rem;
+		border-bottom: 1px solid var(--rule);
+	}
 
-  .header button:hover {
-    background: #f5f5f5;
-  }
+	.eyebrow {
+		font-size: 0.6875rem;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		color: var(--ink-light);
+		margin-bottom: 0.5rem;
+	}
 
-  .email {
-    color: #888;
-    font-size: 0.9rem;
-    margin-bottom: 2rem;
-  }
+	h1 {
+		font-family: var(--serif);
+		font-size: clamp(2rem, 3.5vw, 2.5rem);
+		line-height: 1.08;
+		letter-spacing: -0.025em;
+		margin-bottom: 0.375rem;
+	}
 
-  .card {
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-  }
+	.user-email {
+		font-size: 0.875rem;
+		color: var(--ink-light);
+	}
 
-  .card h2 {
-    margin: 0 0 1.25rem;
-    font-size: 1.1rem;
-  }
+	.btn-signout {
+		background: none;
+		border: 1px solid var(--rule);
+		border-radius: 2px;
+		padding: 0.5rem 1rem;
+		font-size: 0.8125rem;
+		color: var(--ink-mid);
+		font-family: var(--sans);
+		cursor: pointer;
+		transition: border-color 0.15s, color 0.15s;
+		white-space: nowrap;
+	}
 
-  .badge {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
-    border-radius: 999px;
-    font-size: 0.8rem;
-    font-weight: 600;
-  }
+	.btn-signout:hover {
+		border-color: var(--ink-mid);
+		color: var(--ink);
+	}
 
-  .badge.active {
-    background: #e6f4ea;
-    color: #060;
-  }
+	/* ── Layout ── */
+	.main-col {
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+	}
 
-  .badge.inactive {
-    background: #fee;
-    color: #c00;
-  }
+	/* ── Cards ── */
+	.card {
+		border: 1px solid var(--rule);
+		border-radius: 2px;
+		padding: 1.75rem 2rem;
+		background: #fff;
+	}
 
-  .since {
-    color: #888;
-    font-size: 0.85rem;
-    margin-top: 0.5rem;
-  }
+	.card-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 1.25rem;
+	}
 
-  .usage {
-    margin-top: 1.25rem;
-  }
+	.card-header h2 {
+		font-family: var(--serif);
+		font-size: 1.25rem;
+		font-weight: 400;
+		letter-spacing: -0.01em;
+	}
 
-  .reset-note {
-    font-size: 0.8rem;
-    color: #888;
-    margin-top: 0.5rem;
-  }
+	/* ── Badges ── */
+	.badge {
+		font-size: 0.6875rem;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		padding: 0.25rem 0.625rem;
+		border-radius: 1px;
+	}
 
-  .no-license p {
-    color: #555;
-    margin: 0.5rem 0 1rem;
-    font-size: 0.9rem;
-  }
+	.badge-active {
+		background: #eaf3de;
+		color: #3b6d11;
+	}
 
-  .btn {
-    display: inline-block;
-    padding: 0.6rem 1.25rem;
-    background: #111;
-    color: #fff;
-    border-radius: 6px;
-    text-decoration: none;
-    font-size: 0.9rem;
-  }
+	.badge-inactive {
+		background: #fcebeb;
+		color: #a32d2d;
+	}
 
-  .empty {
-    color: #888;
-    font-size: 0.9rem;
-  }
+	/* ── License ── */
+	.since {
+		font-size: 0.875rem;
+		color: var(--ink-mid);
+		margin-bottom: 1.25rem;
+	}
 
-  .orders {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
+	.divider {
+		height: 1px;
+		background: var(--rule);
+		margin-bottom: 1.25rem;
+	}
 
-  .order {
-    border: 1px solid #eee;
-    border-radius: 8px;
-    padding: 1rem;
-  }
+	.usage-rows {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		margin-bottom: 0.75rem;
+	}
 
-  .order-info {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 0.5rem;
-  }
+	.usage-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
 
-  .order-item {
-    font-weight: 600;
-    font-size: 0.95rem;
-  }
+	.usage-label {
+		font-size: 0.875rem;
+		color: var(--ink-mid);
+	}
 
-  .order-date {
-    color: #888;
-    font-size: 0.85rem;
-  }
+	.pill {
+		font-size: 0.6875rem;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		padding: 0.25rem 0.625rem;
+		border-radius: 1px;
+	}
 
-  .order-meta {
-    display: flex;
-    gap: 0.75rem;
-    margin-bottom: 0.5rem;
-  }
+	.pill-good { background: #eaf3de; color: #3b6d11; }
+	.pill-warning { background: #faeeda; color: #854f0b; }
+	.pill-exceeded { background: #fcebeb; color: #a32d2d; }
 
-  .status {
-    font-size: 0.8rem;
-    padding: 0.15rem 0.5rem;
-    border-radius: 999px;
-  }
+	.reset-note {
+		font-size: 0.75rem;
+		color: var(--ink-light);
+	}
 
-  .status.complete { background: #e6f4ea; color: #060; }
-  .status.pending { background: #fff8e1; color: #b45309; }
-  .status.processing { background: #e8f0fe; color: #1a56db; }
-  .status.failed { background: #fee; color: #c00; }
+	.no-license-note {
+		font-size: 0.9375rem;
+		color: var(--ink-mid);
+		line-height: 1.6;
+		margin-bottom: 1.5rem;
+	}
 
-  .delivery {
-    font-size: 0.8rem;
-    color: #888;
-  }
+	/* ── Orders ── */
+	.new-order-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		font-size: 0.8125rem;
+		color: var(--ink-mid);
+		text-decoration: none;
+		transition: color 0.15s;
+	}
 
-  .order-download {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-top: 0.5rem;
-  }
+	.new-order-link:hover {
+		color: var(--ink);
+	}
 
-  .download-link {
-    font-size: 0.85rem;
-    color: #111;
-    font-weight: 600;
-  }
+	.empty-state {
+		padding: 1rem 0;
+	}
 
-  .expiry {
-    font-size: 0.8rem;
-    color: #888;
-  }
+	.empty-state p {
+		font-size: 0.9375rem;
+		color: var(--ink-mid);
+		margin-bottom: 1.25rem;
+	}
 
-  .expired {
-    font-size: 0.85rem;
-    color: #888;
-    margin-top: 0.5rem;
-  }
+	.orders {
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+	}
 
-  .view-link, .retry-link {
-    font-size: 0.85rem;
-    color: #111;
-    margin-top: 0.5rem;
-    display: inline-block;
-  }
+	.order {
+		padding: 1.25rem 0;
+		border-top: 1px solid var(--rule);
+	}
 
-  a { color: #111; }
+	.order:last-child {
+		border-bottom: 1px solid var(--rule);
+	}
 
-  .usage-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.9rem;
-    margin-bottom: 0.75rem;
-  }
+	.order-top {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		margin-bottom: 0.75rem;
+	}
 
-  .standing {
-    font-size: 0.8rem;
-    font-weight: 600;
-    padding: 0.2rem 0.6rem;
-    border-radius: 999px;
-  }
+	.order-left {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
 
-  .standing.good { background: #e6f4ea; color: #060; }
-  .standing.warning { background: #fff8e1; color: #b45309; }
-  .standing.exceeded { background: #fee; color: #c00; }
+	.order-slug {
+		font-size: 0.9375rem;
+		color: var(--ink);
+		font-weight: 400;
+	}
+
+	.order-date {
+		font-size: 0.8125rem;
+		color: var(--ink-light);
+	}
+
+	.order-right {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 0.25rem;
+	}
+
+	.status-pill {
+		font-size: 0.6875rem;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		padding: 0.25rem 0.625rem;
+		border-radius: 1px;
+	}
+
+	.status-complete { background: #eaf3de; color: #3b6d11; }
+	.status-pending { background: #faeeda; color: #854f0b; }
+	.status-processing { background: #e6f1fb; color: #185fa5; }
+	.status-failed { background: #fcebeb; color: #a32d2d; }
+
+	.delivery-method {
+		font-size: 0.75rem;
+		color: var(--ink-light);
+		text-transform: capitalize;
+	}
+
+	.order-download {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+	}
+
+	.download-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.8125rem;
+		color: var(--ink);
+		text-decoration: none;
+		border: 1px solid var(--rule);
+		border-radius: 2px;
+		padding: 0.375rem 0.75rem;
+		transition: border-color 0.15s, background 0.15s;
+	}
+
+	.download-btn:hover {
+		border-color: var(--ink-mid);
+		background: var(--cream);
+	}
+
+	.expiry-note {
+		font-size: 0.75rem;
+		color: var(--ink-light);
+	}
+
+	.file-expired {
+		font-size: 0.8125rem;
+		color: var(--ink-light);
+	}
+
+	.order-action-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		font-size: 0.8125rem;
+		color: var(--ink-mid);
+		text-decoration: none;
+		transition: color 0.15s;
+	}
+
+	.order-action-link:hover {
+		color: var(--ink);
+	}
+
+	/* ── Shared buttons ── */
+	.btn-primary {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		background: var(--ink);
+		color: var(--cream);
+		padding: 0.75rem 1.5rem;
+		border-radius: 2px;
+		font-size: 0.875rem;
+		font-family: var(--sans);
+		font-weight: 400;
+		text-decoration: none;
+		transition: background 0.15s;
+	}
+
+	.btn-primary:hover {
+		background: #3a3530;
+	}
+
+	/* ── Responsive ── */
+	@media (max-width: 860px) {
+		.page {
+			padding: 2.5rem 0 4rem;
+		}
+
+		.page-header {
+			flex-direction: column;
+			gap: 1.5rem;
+		}
+
+		.card {
+			padding: 1.25rem 1.5rem;
+		}
+
+		.order-top {
+			flex-direction: column;
+			gap: 0.75rem;
+		}
+
+		.order-right {
+			align-items: flex-start;
+			flex-direction: row;
+			gap: 0.75rem;
+		}
+	}
 </style>

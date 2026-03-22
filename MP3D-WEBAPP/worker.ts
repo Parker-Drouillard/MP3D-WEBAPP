@@ -5,8 +5,8 @@ import { createHmac } from 'crypto';
 import { join } from 'path';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { sendDownloadEmail } from './src/lib/server/email.ts';
-import { generateDownloadToken } from './src/lib/server/download-token.ts';
+import { sendDownloadEmail, sendWelcomeEmail } from './src/lib/server/email.ts';import { generateDownloadToken } from './src/lib/server/download-token.ts';
+import { RESEND_API_KEY, EMAIL_WFROM, PUBLIC_APP_URL } from '$env/static/private';
 
 // --- Environment validation ---
 const required = [
@@ -103,8 +103,7 @@ async function processStlJob(job: {
   
   if (!stlJob) throw new Error(`Job ${jobId} not found after processing`);
 
-  const token = generateDownloadToken(jobId, stlJob.expiresAt);
-  const downloadUrl = `${process.env.PUBLIC_APP_URL}/api/download/${jobId}?token=${token}`;
+const token = generateDownloadToken(jobId, stlJob.expiresAt, DOWNLOAD_HMAC_SECRET);  const downloadUrl = `${process.env.PUBLIC_APP_URL}/api/download/${jobId}?token=${token}`;
 
 
   await prisma.stlJob.update({
@@ -125,7 +124,7 @@ async function processStlJob(job: {
   });
 
   // Send email if delivery method is email
-  if (stlJob.order.deliveryMethod === 'email' && stlJob.order.user?.email) {
+  if (stlJob.order.user?.email) {
     try {
       await sendDownloadEmail({
         to: stlJob.order.user.email,
@@ -163,15 +162,15 @@ async function main() {
   await boss.createQueue('stl-generation');
 
   await boss.work<{
-    jobId: string;
-    orderId: string;
-    itemSlug: string;
-    inputDir: string;
-    outputPath: string;
+      jobId: string;
+      orderId: string;
+      itemSlug: string;
+      inputDir: string;
+      outputPath: string;
   }>(
-    'stl-generation',
-    { teamSize: 1, teamConcurrency: 1 },
-    async (jobs) => {
+      'stl-generation',
+      { pollingIntervalSeconds: 2 },
+      async (jobs) => {
       const job = Array.isArray(jobs) ? jobs[0] : jobs;
       const { jobId, orderId, itemSlug, inputDir, outputPath } = job.data;
 

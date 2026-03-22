@@ -9,7 +9,7 @@ export interface CreateOrderParams {
   monthlyUsage: number;
   usageResetAt: Date;
   itemSlug: string;
-  deliveryMethod: 'download' | 'email';
+  deliveryMethod: 'download' | 'email' | 'both';
   uploadDir: string;
   fairUseLimit: number;
 }

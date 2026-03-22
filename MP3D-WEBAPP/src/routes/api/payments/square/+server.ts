@@ -2,6 +2,9 @@ import { json, error } from '@sveltejs/kit';
 import { SquareClient, SquareEnvironment, SquareError } from 'square';
 import { prisma } from '$lib/server/prisma';
 import { Prisma } from '@prisma/client';
+import { sendWelcomeEmail } from '$lib/server/email';
+import { RESEND_API_KEY, EMAIL_FROM } from '$env/static/private';
+import { PUBLIC_APP_URL } from '$env/static/public';
 import {
 	SQUARE_ACCESS_TOKEN,
 	SQUARE_LOCATION_ID,
@@ -158,6 +161,25 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			squarePaymentId: paymentResult.id
 		});
 		error(500, 'Payment succeeded but license activation failed. Please contact support.');
+	}
+
+	// Send welcome email — fire and forget, don't block the response
+	const user = await prisma.user.findUnique({
+		where: { id: locals.user.id },
+		select: { email: true }
+	});
+
+	if (user?.email) {
+		sendWelcomeEmail({
+			to: user.email,
+			pricePaidCents: activeTranche.priceCents,
+			trancheName: activeTranche.name,
+			resendApiKey: RESEND_API_KEY,
+			emailFrom: EMAIL_FROM,
+			appUrl: PUBLIC_APP_URL
+		}).catch((e) => {
+			console.error('[payment] Welcome email failed:', e);
+		});
 	}
 
 	return json({ success: true });

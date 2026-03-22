@@ -51,7 +51,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   const slug = formData.get('slug');
-  const deliveryMethod = formData.get('deliveryMethod');
   const photoFiles = formData.getAll('photos');
 
   // 4. Validate slug
@@ -62,11 +61,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const item = getItem(slug);
   if (!item) {
     error(400, 'Invalid item');
-  }
-
-  // 5. Validate delivery method
-  if (deliveryMethod !== 'download' && deliveryMethod !== 'email') {
-    error(400, 'Invalid delivery method');
   }
 
   // 6. Validate photo count
@@ -111,7 +105,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       monthlyUsage: locals.license.monthlyUsage,
       usageResetAt: new Date(locals.license.usageResetAt),
       itemSlug: slug,
-      deliveryMethod,
+      deliveryMethod: 'both',
       uploadDir: UPLOAD_DIR,
       fairUseLimit: limit
     });
