@@ -4,6 +4,7 @@
 			<div class="footer-brand">
 				<a href="/" class="logo">MyPhoto<span>3D</span></a>
 				<p>Photo to STL — for makers, sellers, and anyone with a 3D printer.</p>
+				<p class="address">130 Vermont St., LaSalle ON N9J 1C9</p>
 			</div>
 			<div class="footer-nav">
 				<div class="footer-col">
@@ -17,8 +18,7 @@
 				<div class="footer-col">
 					<h4>Company</h4>
 					<ul>
-						<li><a href="mailto:hello@myphoto3d.ca">Contact</a></li>
-					</ul>
+					<li><a href="/contact">Contact</a></li>					</ul>
 				</div>
 			</div>
 		</div>
@@ -135,6 +135,12 @@
 
 	.footer-legal a:hover {
 		color: var(--ink-mid);
+	}
+
+	.footer-brand .address {
+		font-size: 0.75rem;
+		color: var(--ink-light);
+		margin-top: 0.25rem;
 	}
 
 	@media (max-width: 860px) {

@@ -83,11 +83,16 @@ async function processStlJob(job: {
     });
 
     child.on('close', (code: number | null) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`Binary exited with code ${code}. stderr: ${stderr}`));
-      }
+        if (code === 0) {
+            resolve();
+        } else {
+            const reason = {
+                1: 'Bad arguments passed to binary',
+                2: 'Input error — photos could not be processed',
+                3: 'STL generation failed'
+            }[code ?? -1] ?? `Unknown error (code ${code})`;
+            reject(new Error(`${reason}. stderr: ${stderr}`));
+        }
     });
 
     child.on('error', (err: Error) => {
