@@ -1,7 +1,8 @@
 import { json, error } from '@sveltejs/kit';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { prisma } from '$lib/server/prisma';
-import { SQUARE_WEBHOOK_SIGNATURE_KEY, PUBLIC_APP_URL } from '$env/static/private';
+import { SQUARE_WEBHOOK_SIGNATURE_KEY } from '$env/static/private';
+import { PUBLIC_APP_URL } from '$env/static/public';
 import type { RequestHandler } from './$types';
 import { verifySquareSignature } from '$lib/server/square-webhook';
 
